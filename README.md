@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # lunw_vue
 
 This template should help get you started developing with Vue 3 in Vite.
@@ -46,3 +47,7 @@ npm run build
 ```sh
 npm run lint
 ```
+=======
+# paper
+test
+>>>>>>> c6edf5de4771d456c99933434ba3a50f6bbb5926
