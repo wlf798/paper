@@ -1219,6 +1219,40 @@ mark {
 }
 
 /* Dark Mode Support */
+/* For manual dark mode toggle */
+.dark-mode {
+  --bg-color: #1f2937;
+  --card-bg: #374151;
+  --border-color: #4b5563;
+  --text-color: #f3f4f6;
+}
+
+.dark-mode .floating-nav button,
+.dark-mode .scroll-progress {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.dark-mode .floating-nav button:hover {
+  background: rgb(30, 41, 59);
+}
+
+.dark-mode .paper-card,
+.dark-mode .donate-box,
+.dark-mode .filter-info,
+.dark-mode .tag-filter {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.dark-mode .paper-tag {
+  background: #4b5563;
+  color: var(--text-color);
+}
+
+/* For system dark mode preference */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg-color: #1f2937;
