@@ -34,7 +34,7 @@ const allPapers = ref<Paper[]>([]);
 // Load papers data from JSON file
 const loadPapersData = async () => {
   try {
-    const response = await fetch('/data/papers_categorized.json');
+    const response = await fetch('/paper/data/papers_categorized.json');
     const papersData = await response.json();
     
     const papersDataTyped = papersData as unknown as PapersData;
