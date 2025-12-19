@@ -1,53 +1,87 @@
-<<<<<<< HEAD
-# lunw_vue
+# Conference Papers Collection
 
-This template should help get you started developing with Vue 3 in Vite.
+一个基于 Vue 3 的会议论文集合展示网站，用于展示和筛选学术会议论文。
 
-## Recommended IDE Setup
+## 功能特性
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- 📚 **论文展示**：以卡片形式展示会议论文，包含标题、作者、年份、会议等信息
+- 🔍 **多维度筛选**：支持按年份、会议、关键词进行筛选
+- 🔤 **中英文切换**：支持中文和英文界面切换
+- 🌙 **明暗模式**：支持亮模式和暗模式切换
+- 📊 **统计信息**：显示论文总数、会议数量、年份覆盖范围等统计数据
+- 📄 **摘要展示**：支持展开/折叠论文摘要
+- 🔗 **链接跳转**：支持跳转到论文 PDF、GitHub 仓库等外部链接
 
-## Recommended Browser Setup
+## 技术栈
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+- **前端框架**：Vue 3 (with TypeScript)
+- **构建工具**：Vite
+- **UI 设计**：自定义 CSS (使用 CSS 变量)
+- **数据存储**：JSON 文件
 
-## Type Support for `.vue` Imports in TS
+## 项目结构
 
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
+```
+├── public/
+│   └── data/
+│       ├── papers.json              # 论文数据
+│       └── papers_categorized.json  # 按会议和年份分类的论文数据
+├── src/
+│   ├── App.vue                     # 主应用组件
+│   └── main.ts                     # 应用入口
+├── index.html                      # HTML 模板
+├── package.json                    # 项目配置
+├── vite.config.ts                  # Vite 配置
+└── README.md                       # 项目说明
+```
 
-## Customize configuration
+## 安装和运行
 
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
+### 安装依赖
+```bash
 npm install
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
+### 开发模式运行
+```bash
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
-
-```sh
+### 构建生产版本
+```bash
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
+### 部署到 GitHub Pages
+```bash
+npm run deploy
 ```
-=======
-# paper
-test
->>>>>>> c6edf5de4771d456c99933434ba3a50f6bbb5926
+
+## 数据格式
+
+论文数据采用 JSON 格式，每个论文包含以下字段：
+
+```json
+{
+  "venue": "ICLR",
+  "year": 2025,
+  "title": "论文标题",
+  "title_en": "Paper Title",
+  "abstract": "中文摘要",
+  "abstract_en": "English Abstract",
+  "keywords": "关键词1,关键词2",
+  "authors": "作者1,作者2",
+  "github_links": "https://github.com/example/repo",
+  "pdf_download_url": "https://example.com/paper.pdf",
+  "openreview_forum_url": "https://example.com/forum",
+  "venue_id": "ICLR.cc/2025/Conference"
+}
+```
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 许可证
+
+MIT License
