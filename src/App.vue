@@ -36,7 +36,7 @@ const allPapers = ref<Paper[]>([]);
 // Load papers data from JSON file
 const loadPapersData = async () => {
   try {
-    const response = await fetch('/paper/public/data/openreview_zh_converted.json');
+    const response = await fetch('/paper/data/openreview_zh_converted.json');
     const papersData = await response.json();
     
     const papersDataTyped = papersData as unknown as PapersData;
