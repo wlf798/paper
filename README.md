@@ -15,6 +15,7 @@
 ## 技术栈
 
 - **前端框架**：Vue 3 (with TypeScript)
+- **构建工具**：Vite
 - **UI 设计**：自定义 CSS (使用 CSS 变量)
 - **数据存储**：JSON 文件
 

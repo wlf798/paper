@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 
 // Type definitions
 interface Paper {
@@ -34,7 +36,7 @@ const allPapers = ref<Paper[]>([]);
 // Load papers data from JSON file
 const loadPapersData = async () => {
   try {
-    const response = await fetch('/paper/data/papers_categorized.json');
+    const response = await fetch('/paper/data/openreview_zh_converted.json');
     const papersData = await response.json();
     
     const papersDataTyped = papersData as unknown as PapersData;
@@ -66,7 +68,7 @@ const selectedOnlyMode = ref(false);
 const selectedPapers = ref<Set<string>>(new Set());
 const scrollProgress = ref(0);
 const isChinese = ref(true); // Language toggle state
-const isDarkMode = ref(false); // Dark mode toggle state
+const isDarkMode = ref(false); // Dark mode toggle state - default to light mode
 
 // Extract all unique years for filter
 const years = computed(() => {
@@ -164,6 +166,50 @@ const formatTag = (tag: string): string => {
   return tag.split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
+};
+
+// Render LaTeX in text using KaTeX
+const renderLatex = (text: string): string => {
+  if (!text) return '';
+  
+  // Use KaTeX to render LaTeX formulas
+  // First handle display math ($$...$$ and \[...\])
+  let renderedText = text
+    .replace(/\$\$(.*?)\$\$/gs, (match, formula) => {
+      try {
+        return katex.renderToString(formula, { displayMode: true });
+      } catch (e) {
+        console.error('Error rendering display math:', e);
+        return match;
+      }
+    })
+    .replace(/\\\[(.*?)\\\]/gs, (match, formula) => {
+      try {
+        return katex.renderToString(formula, { displayMode: true });
+      } catch (e) {
+        console.error('Error rendering display math:', e);
+        return match;
+      }
+    })
+    // Then handle inline math ($...$ and \(...\))
+    .replace(/\$(.*?)\$/gs, (match, formula) => {
+      try {
+        return katex.renderToString(formula, { displayMode: false });
+      } catch (e) {
+        console.error('Error rendering inline math:', e);
+        return match;
+      }
+    })
+    .replace(/\\\((.*?)\\\)/gs, (match, formula) => {
+      try {
+        return katex.renderToString(formula, { displayMode: false });
+      } catch (e) {
+        console.error('Error rendering inline math:', e);
+        return match;
+      }
+    });
+  
+  return renderedText;
 };
 
 // Search suggestions based on current query
@@ -288,6 +334,13 @@ const toggleAbstract = (paperTitle: string) => {
   }
 };
 
+
+
+// Toggle dark mode
+const toggleDarkMode = () => {
+  isDarkMode.value = !isDarkMode.value;
+};
+
 // Lifecycle hooks
 onMounted(async () => {
   await loadPapersData();
@@ -297,32 +350,32 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="container" :class="{ 'dark-mode': isDarkMode }">
+  <!-- Floating Navigation -->
+  <div class="floating-nav">
+    <button @click="scrollToTop" aria-label="Scroll to top">
+      <i class="fas fa-arrow-up"></i>
+    </button>
+    <button @click="scrollToBottom" aria-label="Scroll to bottom">
+      <i class="fas fa-arrow-down"></i>
+    </button>
+    <div class="scroll-progress">{{ scrollProgress }}%</div>
+    <!-- Language Toggle Button -->
+    <button 
+      class="language-toggle" 
+      @click="isChinese = !isChinese"
+    >
+      {{ isChinese ? 'EN' : '中文' }}
+    </button>
+    <!-- Dark Mode Toggle Button -->
+    <button 
+      class="dark-mode-toggle" 
+      @click="toggleDarkMode"
+    >
+      <i :class="isDarkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
+    </button>
+  </div>
 
-    <!-- Floating Navigation -->
-    <div class="floating-nav">
-      <button @click="scrollToTop" aria-label="Scroll to top">
-        <i class="fas fa-arrow-up"></i>
-      </button>
-      <button @click="scrollToBottom" aria-label="Scroll to bottom">
-        <i class="fas fa-arrow-down"></i>
-      </button>
-      <div class="scroll-progress">{{ scrollProgress }}%</div>
-      <!-- Language Toggle Button -->
-      <button 
-        class="language-toggle" 
-        @click="isChinese = !isChinese"
-      >
-        {{ isChinese ? 'EN' : '中文' }}
-      </button>
-      <!-- Dark Mode Toggle Button -->
-      <button 
-        class="dark-mode-toggle" 
-        @click="isDarkMode = !isDarkMode"
-      >
-        <i :class="isDarkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
-      </button>
-    </div>
+  <div class="container" :class="{ 'dark-mode': isDarkMode }">
 
 
 
@@ -449,7 +502,8 @@ onMounted(async () => {
 
     <!-- Filters Bar -->
     <div class="filters">
-      <div class="search-wrapper" style="position: relative;">
+      <div class="search-wrapper">
+        <i class="fas fa-search search-icon"></i>
         <input 
           type="text" 
           id="searchInput" 
@@ -528,7 +582,10 @@ onMounted(async () => {
             <div class="placeholder-thumbnail">📄</div>
           </div>
           <div class="paper-content">
-            <h2 class="paper-title">{{ isChinese ? paper.title : paper.title_en }} <span class="paper-year">({{ paper.year }})</span></h2>
+            <h2 class="paper-title">
+                <span v-html="renderLatex(isChinese ? paper.title : paper.title_en)"></span>
+                <span class="paper-year">({{ paper.year }})</span>
+              </h2>
             <div class="paper-meta">
               <span class="paper-venue">{{ paper.venue }}</span>
               <span class="paper-year-label">{{ paper.year }}</span>
@@ -574,8 +631,7 @@ onMounted(async () => {
               <button class="abstract-toggle" @click="toggleAbstract(paper.title)">
                 📖 {{ expandedAbstracts.has(paper.title) ? (isChinese ? '隐藏' : 'Hide') : (isChinese ? '显示' : 'Show') }} {{ isChinese ? '摘要' : 'Abstract' }}
               </button>
-              <div class="paper-abstract" :class="{ 'show': expandedAbstracts.has(paper.title) }">
-                {{ isChinese ? paper.abstract : paper.abstract_en }}
+              <div class="paper-abstract" :class="{ 'show': expandedAbstracts.has(paper.title) }" v-html="renderLatex(isChinese ? paper.abstract : paper.abstract_en)">
               </div>
             </div>
           </div>
@@ -586,7 +642,7 @@ onMounted(async () => {
 </template>
 
 <style>
-/* Root Variables */
+/* Root Variables - Default to Light Mode */
 :root {
   --primary-color: #1772d0;
   --hover-color: #f09228;
@@ -594,6 +650,13 @@ onMounted(async () => {
   --card-bg: #ffffff;
   --border-color: #e5e7eb;
   --text-color: #1f2937;
+  --search-bg: #ffffff;
+  --search-border: #e5e7eb;
+  --filter-bg: #ffffff;
+  --filter-border: #e5e7eb;
+  --tag-bg: #f3f4f6;
+  --tag-hover: #e5e7eb;
+  --paper-abstract-bg: #f9fafb;
 }
 
 /* Base Styles */
@@ -604,6 +667,7 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   line-height: 1.5;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .container {
@@ -611,6 +675,8 @@ body {
   margin: 0 auto;
   padding: 0 20px;
   position: relative;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s;
 }
 
 /* Top Right Controls */
@@ -706,7 +772,7 @@ body {
 
 /* Filter Info */
 .filter-info {
-  background-color: #f8fafc;
+  background-color: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
   padding: 1rem 1.5rem;
@@ -721,7 +787,7 @@ body {
 
 .filter-info p {
   margin: 0.5rem 0;
-  color: #4b5563;
+  color: var(--text-color);
 }
 
 /* Search and Filters */
@@ -732,7 +798,7 @@ body {
   margin-bottom: 2rem;
   align-items: center;
   justify-content: space-between;
-  background: white;
+  background: var(--card-bg);
   padding: 1rem;
   border-radius: 1.25rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -770,48 +836,78 @@ body {
   flex: 1;
   min-width: 250px;
   max-width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 1rem;
+  color: #9ca3af;
+  font-size: 1rem;
+  z-index: 1;
+  transition: color 0.2s ease;
 }
 
 .search-box {
   width: 100%;
-  padding: 0.875rem 2.5rem 0.875rem 1.25rem;
+  padding: 1rem 2.75rem 1rem 2.75rem;
   border: 2px solid var(--border-color);
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   font-size: 1rem;
   box-sizing: border-box;
-  transition: all 0.2s ease;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  background: var(--search-bg);
+  color: var(--text-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-family: inherit;
+}
+
+.search-box::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
 .search-box:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(23, 114, 208, 0.1);
+  box-shadow: 0 0 0 4px rgba(23, 114, 208, 0.15);
   transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.search-box:focus + .search-icon {
+  color: var(--primary-color);
 }
 
 .clear-search-btn {
   position: absolute;
-  right: 15px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
-  border: none;
+  background: var(--bg-color);
+  border: 2px solid var(--border-color);
   cursor: pointer;
   color: #9ca3af;
-  font-size: 1.25rem;
-  padding: 0.375rem;
+  font-size: 0.875rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   z-index: 1;
-  line-height: 1;
   border-radius: 50%;
   transition: all 0.2s ease;
+  padding: 0;
 }
 
 .clear-search-btn:hover {
   color: #dc2626;
   background: #fee2e2;
+  border-color: #dc2626;
   transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
 }
 
 /* Enhanced Filter Select Styling */
@@ -819,7 +915,8 @@ body {
   padding: 0.875rem 2.5rem 0.875rem 1.25rem;
   border: 2px solid var(--border-color);
   border-radius: 1rem;
-  background-color: white;
+  background-color: var(--filter-bg);
+  color: var(--text-color);
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -847,32 +944,85 @@ body {
 /* Search Suggestions */
 .search-suggestions {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: white;
+  background: var(--card-bg);
   border: 1px solid var(--border-color);
-  border-radius: 0 0 0.5rem 0.5rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   z-index: 1001;
-  max-height: 200px;
+  max-height: 250px;
   overflow-y: auto;
-  margin-top: -1px;
+  margin: 0;
+  list-style: none;
+  padding: 0.5rem 0;
+  backdrop-filter: blur(10px);
+}
+
+/* Custom scrollbar for search suggestions */
+.search-suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.search-suggestions::-webkit-scrollbar-track {
+  background: var(--bg-color);
+  border-radius: 3px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.search-suggestions::-webkit-scrollbar-thumb:hover {
+  background: var(--tag-hover);
 }
 
 .search-suggestion-item {
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1.25rem;
   cursor: pointer;
-  transition: background-color 0.2s;
-  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+  color: var(--text-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.search-suggestion-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 4px;
+  background: var(--primary-color);
+  transform: scaleY(0);
+  transition: transform 0.2s ease;
 }
 
 .search-suggestion-item:hover {
-  background: #f3f4f6;
+  background: var(--tag-hover);
+  transform: translateX(4px);
+}
+
+.search-suggestion-item:hover::before {
+  transform: scaleY(1);
 }
 
 .search-suggestion-item:not(:last-child) {
   border-bottom: 1px solid var(--border-color);
+}
+
+/* Focus styles for accessibility */
+.search-suggestion-item:focus {
+  outline: none;
+  background: var(--tag-hover);
+  transform: translateX(4px);
+}
+
+.search-suggestion-item:focus::before {
+  transform: scaleY(1);
 }
 
 /* Tag Filters */
@@ -884,13 +1034,13 @@ body {
   max-height: 200px;
   overflow-y: auto;
   padding: 0.5rem;
-  background: #f9fafb;
+  background: var(--card-bg);
   border-radius: 0.5rem;
   border: 1px solid var(--border-color);
 }
 
 .tag-filter {
-  background: #f3f4f6;
+  background: var(--tag-bg);
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
@@ -904,7 +1054,7 @@ body {
 }
 
 .tag-filter:hover {
-  background: #e5e7eb;
+  background: var(--tag-hover);
   transform: translateY(-1px);
 }
 
@@ -1062,7 +1212,7 @@ mark {
   left: 0;
   right: 0;
   width: 100%;
-  background: white;
+  background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   z-index: 999;
@@ -1075,7 +1225,7 @@ mark {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  background: #f8fafc;
+  background: var(--tag-bg);
   border-bottom: 1px solid var(--border-color);
 }
 
@@ -1116,7 +1266,7 @@ mark {
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  background: white;
+  background: var(--card-bg);
   max-width: 300px;
   margin-bottom: 0.5rem;
 }
@@ -1219,73 +1369,67 @@ mark {
 }
 
 /* Dark Mode Support */
-/* For manual dark mode toggle */
-.dark-mode {
-  --bg-color: #1f2937;
-  --card-bg: #374151;
-  --border-color: #4b5563;
-  --text-color: #f3f4f6;
+/* For manual light mode toggle */
+:not(.dark-mode) {
+  --primary-color: #1772d0;
+  --hover-color: #f09228;
+  --bg-color: #ffffff;
+  --card-bg: #ffffff;
+  --border-color: #e5e7eb;
+  --text-color: #1f2937;
+  --search-bg: #ffffff;
+  --search-border: #e5e7eb;
+  --filter-bg: #ffffff;
+  --filter-border: #e5e7eb;
+  --tag-bg: #f3f4f6;
+  --tag-hover: #e5e7eb;
+  --paper-abstract-bg: #f9fafb;
 }
 
-.dark-mode .floating-nav button,
-.dark-mode .scroll-progress {
-  background: rgba(30, 41, 59, 0.9);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.dark-mode .floating-nav button:hover {
-  background: rgb(30, 41, 59);
-}
-
-.dark-mode .paper-card,
-.dark-mode .donate-box,
-.dark-mode .filter-info,
-.dark-mode .tag-filter {
+.container.dark-mode .paper-card,
+.container.dark-mode .donate-box,
+.container.dark-mode .filter-info,
+.container.dark-mode .tag-filter {
   background: var(--card-bg);
   color: var(--text-color);
   border-color: var(--border-color);
 }
 
-.dark-mode .paper-tag {
+.container.dark-mode .paper-tag {
   background: #4b5563;
   color: var(--text-color);
 }
 
-/* For system dark mode preference */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-color: #1f2937;
-    --card-bg: #374151;
-    --border-color: #4b5563;
-    --text-color: #f3f4f6;
-  }
-  
-  .floating-nav button,
-  .scroll-progress {
-    background: rgba(30, 41, 59, 0.9);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  .floating-nav button:hover {
-    background: rgb(30, 41, 59);
-  }
-  
-  .paper-card,
-  .donate-box,
-  .filter-info,
-  .tag-filter {
-    background: var(--card-bg);
-    color: var(--text-color);
-    border-color: var(--border-color);
-  }
-  
-  .paper-tag {
-    background: #4b5563;
-    color: var(--text-color);
-  }
+/* Apply background color to body based on dark mode state */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s, color 0.3s;
 }
+
+.container {
+  background-color: var(--bg-color);
+  transition: background-color 0.3s;
+}
+
+/* Update CSS variables when dark mode is enabled */
+.container.dark-mode {
+  --primary-color: #60a5fa; /* Brighter primary color */
+  --hover-color: #fbbf24; /* Brighter hover color */
+  --bg-color: #0f172a; /* Darker background for better contrast */
+  --card-bg: #1e293b; /* Slightly lighter card background */
+  --border-color: #334155; /* Subtle border color */
+  --text-color: #f8fafc; /* Bright white text for readability */
+  --search-bg: #1e293b; /* Consistent search background */
+  --search-border: #334155; /* Consistent search border */
+  --filter-bg: #1e293b; /* Consistent filter background */
+  --filter-border: #334155; /* Consistent filter border */
+  --tag-bg: #334155; /* Modern tag background */
+  --tag-hover: #475569; /* Subtle tag hover effect */
+  --paper-abstract-bg: #1e293b; /* Consistent abstract background */
+}
+
+/* Remove the old dark mode media query since we now default to dark mode */
 
 /* Print Styles */
 @media print {
@@ -1536,11 +1680,11 @@ mark {
 }
 
 .paper-tag {
-  background: #f3f4f6;
+  background: var(--tag-bg);
   padding: 0.25rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.85rem;
-  color: #4b5563;
+  color: var(--text-color);
 }
 
 .paper-links {
@@ -1558,7 +1702,7 @@ mark {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: #f3f4f6;
+  background: var(--tag-bg);
   border: none;
   border-radius: 0.5rem;
   transition: all 0.2s;
@@ -1568,17 +1712,17 @@ mark {
 }
 
 .paper-link:hover, .abstract-toggle:hover {
-  background: #e5e7eb;
+  background: var(--tag-hover);
   color: var(--hover-color);
 }
 
 .paper-abstract {
   margin-top: 1rem;
   display: none;
-  background: #f9fafb;
+  background: var(--paper-abstract-bg);
   padding: 1rem;
   border-radius: 0.5rem;
-  color: #4b5563;
+  color: var(--text-color);
   line-height: 1.6;
   border: 1px solid var(--border-color);
 }
