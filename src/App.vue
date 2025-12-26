@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watchEffect } from 'vue';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
@@ -70,6 +70,10 @@ const scrollProgress = ref(0);
 const isChinese = ref(true); // Language toggle state
 const isDarkMode = ref(false); // Dark mode toggle state - default to light mode
 
+// Pagination state
+const currentPage = ref(1);
+const papersPerPage = ref(10); // Default papers per page
+
 // Extract all unique years for filter
 const years = computed(() => {
   const yearSet = new Set<number>();
@@ -130,6 +134,18 @@ const filteredPapers = computed(() => {
     
     return matchesSearch && matchesYear && matchesVenue && hasAllIncludedTags && hasNoExcludedTags;
   });
+});
+
+// Pagination computed properties
+const paginatedPapers = computed(() => {
+  const startIndex = (currentPage.value - 1) * papersPerPage.value;
+  const endIndex = startIndex + papersPerPage.value;
+  return filteredPapers.value.slice(startIndex, endIndex);
+});
+
+// Total pages
+const totalPages = computed(() => {
+  return Math.ceil(filteredPapers.value.length / papersPerPage.value);
 });
 
 // Enhanced tags with counts for better usability - limited to top 30 most frequent
@@ -281,6 +297,71 @@ const clearAllFilters = () => {
   selectedTags.value.clear();
   excludedTags.value.clear();
 };
+
+// Pagination control methods
+// Switch to specified page
+const goToPage = (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
+};
+
+// Go to previous page
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+  }
+};
+
+// Go to next page
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+  }
+};
+
+// Change papers per page
+const changePapersPerPage = (count: number) => {
+  papersPerPage.value = count;
+  currentPage.value = 1; // Reset to first page when changing papers per page
+};
+
+// Helper methods for pagination display
+// Determine if a page button should be shown
+const showPageButton = (page: number): boolean => {
+  // Always show first, last, and current page
+  if (page === 1 || page === totalPages.value || page === currentPage.value) {
+    return true;
+  }
+  
+  // Show pages within 2 of current page
+  if (page > currentPage.value - 2 && page < currentPage.value + 2) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Determine if ellipsis should be shown
+const showEllipsis = (position: string): boolean => {
+  if (totalPages.value <= 5) return false;
+  
+  if (position === 'left') {
+    return currentPage.value > 3;
+  } else if (position === 'right') {
+    return currentPage.value < totalPages.value - 2;
+  }
+  
+  return false;
+};
+
+// Reset page to 1 when filter conditions change
+watchEffect(() => {
+  // Access filteredPapers to trigger watch when any filter changes
+  filteredPapers.value;
+  // Reset to first page
+  currentPage.value = 1;
+});
 
 // Toggle selection mode
 const toggleSelectionMode = () => {
@@ -561,7 +642,7 @@ onMounted(async () => {
     <!-- Paper Cards -->
     <div class="papers-grid">
       <div 
-        v-for="(paper, index) in filteredPapers" 
+        v-for="(paper, index) in paginatedPapers" 
         :key="index"
         class="paper-row"
         :data-id="paper.title.toLowerCase().replace(/[^a-z0-9]/g, '')"
@@ -577,7 +658,7 @@ onMounted(async () => {
             :class="{ 'selection-mode': selectionMode }"
             @click.stop="togglePaperSelection(paper.title)"
           >
-          <div class="paper-number">{{ index + 1 }}</div>
+          <div class="paper-number">{{ (currentPage - 1) * papersPerPage + index + 1 }}</div>
           <div class="paper-thumbnail">
             <div class="placeholder-thumbnail">📄</div>
           </div>
@@ -636,6 +717,59 @@ onMounted(async () => {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="pagination">
+      <div class="pagination-info">
+        <span>Showing {{ paginatedPapers.length }} of {{ filteredPapers.length }} papers</span>
+      </div>
+      <div class="pagination-controls">
+        <button 
+          class="pagination-btn" 
+          @click="prevPage" 
+          :disabled="currentPage === 1"
+        >
+          <i class="fas fa-chevron-left"></i> Previous
+        </button>
+        
+        <div class="page-numbers">
+          <button 
+            v-for="page in totalPages" 
+            :key="page"
+            class="page-btn"
+            :class="{ active: page === currentPage }"
+            @click="goToPage(page)"
+            v-show="showPageButton(page)"
+          >
+            {{ page }}
+          </button>
+          <span v-if="totalPages > 5" class="page-ellipsis" v-show="showEllipsis('left')">...</span>
+          <span v-if="totalPages > 5" class="page-ellipsis" v-show="showEllipsis('right')">...</span>
+        </div>
+        
+        <button 
+          class="pagination-btn" 
+          @click="nextPage" 
+          :disabled="currentPage === totalPages"
+        >
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+      
+      <div class="pagination-per-page">
+        <label for="papersPerPage">Show per page:</label>
+        <select 
+          id="papersPerPage" 
+          v-model.number="papersPerPage" 
+          @change="changePapersPerPage(papersPerPage)"
+        >
+          <option :value="10">10</option>
+          <option :value="20">20</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+        </select>
       </div>
     </div>
   </div>
@@ -1824,5 +1958,171 @@ body {
   }
 }
 
+/* Pagination Styles */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin: 2rem 0;
+  padding: 1rem;
+  background: var(--card-bg);
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
 
+.pagination-info {
+  font-size: 0.95rem;
+  color: var(--text-color);
+  margin-bottom: 1rem;
+  flex-basis: 100%;
+  text-align: center;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pagination-btn {
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--tag-bg);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.page-btn:hover {
+  border-color: var(--primary-color);
+  background: var(--tag-bg);
+  transform: translateY(-1px);
+}
+
+.page-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(23, 114, 208, 0.2);
+}
+
+.page-ellipsis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.2rem;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.pagination-per-page {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-color);
+}
+
+.pagination-per-page select {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pagination-per-page select:hover {
+  border-color: var(--primary-color);
+}
+
+/* Responsive Pagination */
+@media (min-width: 768px) {
+  .pagination-info {
+    flex-basis: auto;
+    text-align: left;
+    margin-bottom: 0;
+  }
+  
+  .pagination-controls {
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .pagination {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .pagination-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .pagination-per-page {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .page-btn {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.8rem;
+  }
+  
+  .pagination-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+}
 </style>
