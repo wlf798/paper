@@ -33,25 +33,40 @@ interface PapersData {
 // Convert papers data to flat array for easier handling
 const allPapers = ref<Paper[]>([]);
 
-// Load papers data from JSON file
+// Load papers data from JSON files
 const loadPapersData = async () => {
   try {
-    const response = await fetch('/paper/data/openreview_zh_converted.json');
-    const papersData = await response.json();
+    // Load first JSON file (converted format with papers_by_venue_year)
+    const response1 = await fetch('/paper/data/openreview_zh_converted.json');
+    const papersData1 = await response1.json();
     
-    const papersDataTyped = papersData as unknown as PapersData;
-    for (const venue in papersDataTyped.papers_by_venue_year) {
-      const venueData = papersDataTyped.papers_by_venue_year[venue];
-      if (venueData) {
-        for (const yearStr in venueData) {
-          const year = parseInt(yearStr);
-          const yearPapers = venueData[year];
-          if (yearPapers) {
-            allPapers.value = [...allPapers.value, ...yearPapers];
+    // Process first JSON file
+    if (papersData1.papers_by_venue_year) {
+      const papersDataTyped = papersData1 as unknown as PapersData;
+      for (const venue in papersDataTyped.papers_by_venue_year) {
+        const venueData = papersDataTyped.papers_by_venue_year[venue];
+        if (venueData) {
+          for (const yearStr in venueData) {
+            const year = parseInt(yearStr);
+            const yearPapers = venueData[year];
+            if (yearPapers) {
+              allPapers.value = [...allPapers.value, ...yearPapers];
+            }
           }
         }
       }
     }
+    
+    // Load second JSON file (array format)
+    const response2 = await fetch('/paper/data/openreview_cvpr_aaai.json');
+    const papersData2 = await response2.json();
+    
+    // Process second JSON file
+    if (Array.isArray(papersData2)) {
+      allPapers.value = [...allPapers.value, ...papersData2];
+    }
+    
+    console.log('Total papers loaded:', allPapers.value.length);
   } catch (error) {
     console.error('Failed to load papers data:', error);
   }
@@ -72,7 +87,8 @@ const isDarkMode = ref(false); // Dark mode toggle state - default to light mode
 
 // Pagination state
 const currentPage = ref(1);
-const papersPerPage = ref(10); // Default papers per page
+const papersPerPage = ref(50); // Default papers per page
+const inputPage = ref(''); // For page jump functionality
 
 // Extract all unique years for filter
 const years = computed(() => {
@@ -148,7 +164,7 @@ const totalPages = computed(() => {
   return Math.ceil(filteredPapers.value.length / papersPerPage.value);
 });
 
-// Enhanced tags with counts for better usability - limited to top 30 most frequent
+// Enhanced tags with counts for better usability - limited to top 50 most frequent
 const tagsWithCounts = computed(() => {
   const tagCountMap = new Map<string, number>();
   
@@ -163,7 +179,7 @@ const tagsWithCounts = computed(() => {
     });
   });
   
-  // Convert to array, sort by count (descending), then alphabetically, and limit to top 30
+  // Convert to array, sort by count (descending), then alphabetically, and limit to top 50
   return Array.from(tagCountMap.entries())
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => {
@@ -174,7 +190,7 @@ const tagsWithCounts = computed(() => {
       // Then sort alphabetically
       return a.tag.localeCompare(b.tag);
     })
-    .slice(0, 30); // Limit to top 30 most frequent tags
+    .slice(0, 50); // Limit to top 50 most frequent tags
 });
 
 // Format tag display with proper capitalization
@@ -303,6 +319,7 @@ const clearAllFilters = () => {
 const goToPage = (page: number) => {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
 
@@ -310,6 +327,7 @@ const goToPage = (page: number) => {
 const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
 
@@ -317,6 +335,7 @@ const prevPage = () => {
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 };
 
@@ -324,6 +343,21 @@ const nextPage = () => {
 const changePapersPerPage = (count: number) => {
   papersPerPage.value = count;
   currentPage.value = 1; // Reset to first page when changing papers per page
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// Handle page jump
+const goToInputPage = () => {
+  const pageNumber = parseInt(inputPage.value);
+  if (!isNaN(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages.value) {
+    currentPage.value = pageNumber;
+    inputPage.value = ''; // Clear input field after successful jump
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    // Clear input field if invalid
+    inputPage.value = '';
+    alert(`Please enter a valid page number (1-${totalPages.value})`);
+  }
 };
 
 // Helper methods for pagination display
@@ -334,8 +368,8 @@ const showPageButton = (page: number): boolean => {
     return true;
   }
   
-  // Show pages within 2 of current page
-  if (page > currentPage.value - 2 && page < currentPage.value + 2) {
+  // Show pages within 3 of current page
+  if (page > currentPage.value - 3 && page < currentPage.value + 3) {
     return true;
   }
   
@@ -344,12 +378,12 @@ const showPageButton = (page: number): boolean => {
 
 // Determine if ellipsis should be shown
 const showEllipsis = (position: string): boolean => {
-  if (totalPages.value <= 5) return false;
+  if (totalPages.value <= 7) return false;
   
   if (position === 'left') {
-    return currentPage.value > 3;
+    return currentPage.value > 4;
   } else if (position === 'right') {
-    return currentPage.value < totalPages.value - 2;
+    return currentPage.value < totalPages.value - 3;
   }
   
   return false;
@@ -659,10 +693,7 @@ onMounted(async () => {
             @click.stop="togglePaperSelection(paper.title)"
           >
           <div class="paper-number">{{ (currentPage - 1) * papersPerPage + index + 1 }}</div>
-          <div class="paper-thumbnail">
-            <div class="placeholder-thumbnail">📄</div>
-          </div>
-          <div class="paper-content">
+          <div class="paper-content full-width">
             <h2 class="paper-title">
                 <span v-html="renderLatex(isChinese ? paper.title : paper.title_en)"></span>
                 <span class="paper-year">({{ paper.year }})</span>
@@ -770,6 +801,20 @@ onMounted(async () => {
           <option :value="50">50</option>
           <option :value="100">100</option>
         </select>
+      </div>
+      
+      <div class="pagination-go-to">
+        <span>Go to:</span>
+        <input 
+          type="text" 
+          v-model="inputPage" 
+          placeholder="Page" 
+          class="page-input"
+          @keyup.enter="goToInputPage"
+        >
+        <button class="go-to-btn" @click="goToInputPage">
+          Go
+        </button>
       </div>
     </div>
   </div>
@@ -1165,7 +1210,7 @@ body {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-bottom: 2rem;
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
   padding: 0.5rem;
   background: var(--card-bg);
@@ -1548,19 +1593,19 @@ body {
 
 /* Update CSS variables when dark mode is enabled */
 .container.dark-mode {
-  --primary-color: #60a5fa; /* Brighter primary color */
-  --hover-color: #fbbf24; /* Brighter hover color */
-  --bg-color: #0f172a; /* Darker background for better contrast */
-  --card-bg: #1e293b; /* Slightly lighter card background */
-  --border-color: #334155; /* Subtle border color */
-  --text-color: #f8fafc; /* Bright white text for readability */
-  --search-bg: #1e293b; /* Consistent search background */
-  --search-border: #334155; /* Consistent search border */
-  --filter-bg: #1e293b; /* Consistent filter background */
-  --filter-border: #334155; /* Consistent filter border */
-  --tag-bg: #334155; /* Modern tag background */
-  --tag-hover: #475569; /* Subtle tag hover effect */
-  --paper-abstract-bg: #1e293b; /* Consistent abstract background */
+  --primary-color: #1772d0; /* Original blue primary color */
+  --hover-color: #1557b0; /* Darker hover color */
+  --bg-color: #f8fafc; /* Light background */
+  --card-bg: #ffffff; /* White card background */
+  --border-color: #e2e8f0; /* Light border color */
+  --text-color: #1f2937; /* Dark text color (保持不变) */
+  --search-bg: #ffffff; /* White search background */
+  --search-border: #e2e8f0; /* Light search border */
+  --filter-bg: #ffffff; /* White filter background */
+  --filter-border: #e2e8f0; /* Light filter border */
+  --tag-bg: #f3f4f6; /* Light tag background */
+  --tag-hover: #e5e7eb; /* Tag hover effect */
+  --paper-abstract-bg: #f9fafb; /* Light abstract background */
 }
 
 /* Remove the old dark mode media query since we now default to dark mode */
@@ -1746,22 +1791,9 @@ body {
   z-index: 1;
 }
 
-.paper-thumbnail {
-  flex: 0 0 240px;
-  height: 200px;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-  background-color: #f3f4f6;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.placeholder-thumbnail {
-  font-size: 4rem;
-  opacity: 0.5;
+.paper-content.full-width {
+  flex: 1 1 100%;
+  width: 100%;
 }
 
 .paper-content {
@@ -2084,6 +2116,59 @@ body {
   border-color: var(--primary-color);
 }
 
+/* Page Jump Styles */
+.pagination-go-to {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-color);
+  margin-top: 1rem;
+}
+
+@media (min-width: 768px) {
+  .pagination-go-to {
+    margin-top: 0;
+  }
+}
+
+.page-input {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  width: 60px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(23, 114, 208, 0.2);
+}
+
+.go-to-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--primary-color);
+  border-radius: 0.5rem;
+  background: var(--primary-color);
+  color: white;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.go-to-btn:hover {
+  background: #1557b0;
+  border-color: #1557b0;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 /* Responsive Pagination */
 @media (min-width: 768px) {
   .pagination-info {
@@ -2123,6 +2208,76 @@ body {
   .pagination-btn {
     padding: 0.5rem 1rem;
     font-size: 0.8rem;
+  }
+}
+
+/* Page Jump Styles */
+.pagination-go-to {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-color);
+  margin-top: 1rem;
+  flex-basis: 100%;
+  justify-content: center;
+}
+
+.pagination-go-to span {
+  font-weight: 500;
+}
+
+.page-input {
+  width: 5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  font-family: inherit;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.page-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(23, 114, 208, 0.1);
+}
+
+.go-to-btn {
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.go-to-btn:hover {
+  background: var(--tag-bg);
+  border-color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.go-to-btn:active {
+  transform: translateY(0);
+}
+
+/* Responsive for Page Jump */
+@media (min-width: 768px) {
+  .pagination-go-to {
+    flex-basis: auto;
+    margin-top: 0;
+    justify-content: flex-end;
   }
 }
 </style>

@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "katex": "^0.16.27",
+    "pdfjs-dist": "^5.4.530",
     "vue": "^3.5.25"
   },
   "devDependencies": {
