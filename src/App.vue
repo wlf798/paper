@@ -83,7 +83,7 @@ const selectedOnlyMode = ref(false);
 const selectedPapers = ref<Set<string>>(new Set());
 const scrollProgress = ref(0);
 const isChinese = ref(true); // Language toggle state
-const isDarkMode = ref(false); // Dark mode toggle state - default to light mode
+const showOnlyWithCode = ref(false); // Show only papers with code toggle state - default to false
 
 // Pagination state
 const currentPage = ref(1);
@@ -148,7 +148,10 @@ const filteredPapers = computed(() => {
     const hasAllIncludedTags = Array.from(processedSelectedTags).every(tag => paperTags.has(tag));
     const hasNoExcludedTags = !Array.from(processedExcludedTags).some(tag => paperTags.has(tag));
     
-    return matchesSearch && matchesYear && matchesVenue && hasAllIncludedTags && hasNoExcludedTags;
+    // Only show papers with code if showOnlyWithCode is true
+    const hasCode = !showOnlyWithCode.value || paper.github_links.trim() !== '';
+    
+    return matchesSearch && matchesYear && matchesVenue && hasAllIncludedTags && hasNoExcludedTags && hasCode;
   });
 });
 
@@ -451,9 +454,9 @@ const toggleAbstract = (paperTitle: string) => {
 
 
 
-// Toggle dark mode
-const toggleDarkMode = () => {
-  isDarkMode.value = !isDarkMode.value;
+// Toggle show only papers with code
+const toggleShowOnlyWithCode = () => {
+  showOnlyWithCode.value = !showOnlyWithCode.value;
 };
 
 // Lifecycle hooks
@@ -481,16 +484,16 @@ onMounted(async () => {
     >
       {{ isChinese ? 'EN' : '中文' }}
     </button>
-    <!-- Dark Mode Toggle Button -->
+    <!-- Show Only With Code Toggle Button -->
     <button 
       class="dark-mode-toggle" 
-      @click="toggleDarkMode"
+      @click="toggleShowOnlyWithCode"
     >
-      <i :class="isDarkMode ? 'fas fa-sun' : 'fas fa-moon'"></i>
+      <i :class="showOnlyWithCode ? 'fas fa-code' : 'fas fa-code-branch'"></i>
     </button>
   </div>
 
-  <div class="container" :class="{ 'dark-mode': isDarkMode }">
+  <div class="container">
 
 
 
