@@ -75,6 +75,12 @@ const loadPapersData = async () => {
       allPapers.value = [...allPapers.value, ...papersData3];
     }
     
+    const responseSA = await fetch('/paper/data/siggraph_asia_2026.json');
+    const papersSA = await responseSA.json();
+    if (Array.isArray(papersSA)) {
+      allPapers.value = [...allPapers.value, ...papersSA];
+    }
+
     console.log('Total papers loaded:', allPapers.value.length);
   } catch (error) {
     console.error('Failed to load papers data:', error);
